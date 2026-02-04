@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+pypdf2
+sentence-transformers
+supabase
+python-dotenv
