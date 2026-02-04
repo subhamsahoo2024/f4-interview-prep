@@ -49,7 +49,7 @@ export default async function TestDBPage() {
                 Connected successfully! Found {companies.length} companies.
               </p>
               <ul className="list-disc pl-6 space-y-1">
-                {companies.map((company: any) => (
+                {(companies || []).map((company: any) => (
                   <li key={company.id} className="text-gray-700">
                     {company.name}
                   </li>
@@ -94,7 +94,7 @@ export default async function TestDBPage() {
                 Connected successfully! Found {profiles.length} profiles.
               </p>
               <div className="space-y-2">
-                {profiles.map((profile: any) => (
+                {(profiles || []).map((profile: any) => (
                   <div
                     key={profile.id}
                     className="p-3 bg-gray-50 rounded border border-gray-200"

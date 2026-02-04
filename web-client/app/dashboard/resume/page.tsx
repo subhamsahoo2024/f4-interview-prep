@@ -1,53 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
+import Link from "next/link";
 
 export default function ResumeUploadPage() {
-  const router = useRouter();
-
   // State management
+  const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<
-    "idle" | "uploading" | "success" | "error"
+    "idle" | "loading" | "success" | "error"
   >("idle");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewText, setPreviewText] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [uploadDetails, setUploadDetails] = useState<any>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Hardcoded user_id for testing (replace with actual auth later)
-  const USER_ID = "a610985a-fe96-479b-9bdf-75b71aa5aea1"; // You can get this from Supabase Auth or use a UUID
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.type !== "application/pdf") {
-        setErrorMessage("Please select a PDF file");
-        setSelectedFile(null);
-        return;
-      }
-      setSelectedFile(file);
-      setErrorMessage("");
-      setStatus("idle");
-      setPreviewText("");
+  // Test User ID - Replace with your actual UUID from Supabase
+  const TEST_USER_ID = "a610985a-fe96-479b-9bdf-75b71aa5aea1";
+
+  // Handle file selection
+  const handleFileChange = (selectedFile: File | null) => {
+    if (!selectedFile) return;
+
+    if (selectedFile.type !== "application/pdf") {
+      setErrorMessage("Please select a PDF file");
+      setFile(null);
+      return;
+    }
+
+    setFile(selectedFile);
+    setErrorMessage("");
+    setStatus("idle");
+    setPreviewText("");
+  };
+
+  // Handle drag and drop
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileChange(files[0]);
     }
   };
 
+  // Handle upload
   const handleUpload = async () => {
-    if (!selectedFile) {
+    if (!file) {
       setErrorMessage("Please select a file first");
       return;
     }
 
-    setStatus("uploading");
+    setStatus("loading");
     setErrorMessage("");
-    setPreviewText("");
+    setPreviewText("Processing AI embeddings...");
 
     try {
       // Create FormData
       const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("user_id", USER_ID);
+      formData.append("file", file);
+      formData.append("user_id", TEST_USER_ID);
 
       // Send POST request to FastAPI backend
       const response = await fetch("http://localhost:8000/resume/upload", {
@@ -63,79 +94,119 @@ export default function ResumeUploadPage() {
 
       // Success!
       setStatus("success");
-      setUploadDetails(data.details);
 
-      // Show preview of what was extracted
+      // Display preview text
       if (data.details) {
         setPreviewText(
-          `✓ Extracted ${data.details.text_length} characters\n` +
-            `✓ Generated ${data.details.embedding_dimensions}D embedding vector\n` +
-            `✓ Profile updated successfully`,
+          `✓ Successfully processed your resume!\n\n` +
+            `📄 File: ${data.details.filename}\n` +
+            `📊 Extracted: ${data.details.text_length} characters\n` +
+            `🤖 Generated: ${data.details.embedding_dimensions}D AI embedding vector\n` +
+            `✅ Profile updated in database\n\n` +
+            `Your resume is now ready for job matching!`,
         );
       }
     } catch (error: any) {
       setStatus("error");
       setErrorMessage(error.message || "An error occurred during upload");
+      setPreviewText("");
     }
   };
 
-  const handleCheckCompatibility = () => {
-    // Navigate to job matching page (to be implemented)
-    router.push("/dashboard/matching");
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Upload Your Resume
-          </h1>
-          <p className="text-gray-600">
-            Upload your resume to get personalized job recommendations and
-            placement predictions
-          </p>
-        </div>
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl">
+        {/* Back Link */}
+        <Link
+          href="/"
+          className="inline-flex items-center text-indigo-600 hover:text-indigo-800 mb-6 font-medium"
+        >
+          ← Back to Home
+        </Link>
 
-        {/* Upload Card */}
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          {/* File Input */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Resume (PDF only)
-            </label>
+        {/* Main Card */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">📄</div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Upload Your Resume
+            </h1>
+            <p className="text-gray-600">
+              Let our AI analyze your skills and match you with top companies
+            </p>
+          </div>
+
+          {/* Drag & Drop Area */}
+          <div
+            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 mb-6 cursor-pointer ${
+              isDragging
+                ? "border-indigo-500 bg-indigo-50"
+                : file
+                  ? "border-green-500 bg-green-50"
+                  : "border-gray-300 hover:border-indigo-400 hover:bg-gray-50"
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
             <input
+              ref={fileInputRef}
               type="file"
               accept=".pdf"
-              onChange={handleFileSelect}
-              disabled={status === "uploading"}
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-indigo-50 file:text-indigo-700
-                hover:file:bg-indigo-100
-                disabled:opacity-50 disabled:cursor-not-allowed"
+              onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+              className="hidden"
             />
-            {selectedFile && (
-              <p className="mt-2 text-sm text-gray-600">
-                Selected:{" "}
-                <span className="font-medium">{selectedFile.name}</span> (
-                {(selectedFile.size / 1024).toFixed(2)} KB)
-              </p>
+
+            {file ? (
+              <div className="space-y-2">
+                <div className="text-4xl">✅</div>
+                <p className="text-lg font-semibold text-green-700">
+                  {file.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {(file.size / 1024).toFixed(2)} KB
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFile(null);
+                    setStatus("idle");
+                    setPreviewText("");
+                  }}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 underline"
+                >
+                  Choose different file
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-5xl">📤</div>
+                <div>
+                  <p className="text-lg font-semibold text-gray-700 mb-1">
+                    Drag & Drop your resume here
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    or click to browse (PDF only)
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Upload Button */}
+          {/* Analyze Button */}
           <button
             onClick={handleUpload}
-            disabled={!selectedFile || status === "uploading"}
-            className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md font-semibold
-              hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed
-              transition-colors duration-200"
+            disabled={!file || status === "loading"}
+            className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-200 ${
+              !file || status === "loading"
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg transform hover:scale-[1.02]"
+            }`}
           >
-            {status === "uploading" ? (
+            {status === "loading" ? (
               <span className="flex items-center justify-center">
                 <svg
                   className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -157,126 +228,106 @@ export default function ResumeUploadPage() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                Processing Resume...
+                Uploading...
               </span>
             ) : (
-              "Upload Resume"
+              "Analyze Resume"
             )}
           </button>
 
-          {/* Status Messages */}
-          {status === "success" && (
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
-              <div className="flex items-start">
-                <svg
-                  className="h-5 w-5 text-green-500 mt-0.5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <div className="ml-3 flex-1">
-                  <h3 className="text-sm font-medium text-green-800">
-                    Resume Uploaded Successfully!
-                  </h3>
-                  {previewText && (
-                    <pre className="mt-2 text-sm text-green-700 whitespace-pre-line font-mono">
+          {/* Status Area */}
+          <div className="mt-6 min-h-30">
+            {status === "loading" && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800 font-medium flex items-center">
+                  <svg
+                    className="animate-spin h-5 w-5 mr-2"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  {previewText || "Processing AI embeddings..."}
+                </p>
+              </div>
+            )}
+
+            {status === "success" && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-5">
+                <div className="flex items-start mb-3">
+                  <svg
+                    className="h-6 w-6 text-green-600 mr-2 shrink-0"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-green-800 mb-2">Success!</h3>
+                    <pre className="text-sm text-green-700 whitespace-pre-line font-sans">
                       {previewText}
                     </pre>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {status === "error" && (
-            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
-              <div className="flex items-start">
-                <svg
-                  className="h-5 w-5 text-red-500 mt-0.5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Upload Failed
-                  </h3>
-                  <p className="mt-1 text-sm text-red-700">{errorMessage}</p>
+            {status === "error" && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <svg
+                    className="h-5 w-5 text-red-600 mr-2 shrink-0 mt-0.5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <div>
+                    <h3 className="font-semibold text-red-800">Error</h3>
+                    <p className="text-sm text-red-700 mt-1">{errorMessage}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {errorMessage && status !== "error" && (
-            <div className="mt-4 text-sm text-red-600">{errorMessage}</div>
-          )}
+            {errorMessage && status !== "error" && (
+              <div className="text-sm text-red-600 mt-2">{errorMessage}</div>
+            )}
+          </div>
 
-          {/* Check Compatibility Button (shown after success) */}
-          {status === "success" && (
-            <div className="mt-6">
-              <button
-                onClick={handleCheckCompatibility}
-                className="w-full bg-green-600 text-white py-3 px-4 rounded-md font-semibold
-                  hover:bg-green-700 transition-colors duration-200
-                  flex items-center justify-center"
-              >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                  />
-                </svg>
-                Check Job Compatibility
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Info Card */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <svg
-              className="h-5 w-5 text-blue-500 mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
-                How it works
-              </h3>
-              <ul className="mt-2 text-sm text-blue-700 list-disc list-inside space-y-1">
-                <li>Upload your PDF resume</li>
-                <li>Our AI extracts text and analyzes your skills</li>
-                <li>We generate a semantic embedding for matching</li>
-                <li>Get personalized job recommendations</li>
-              </ul>
-              <p className="mt-3 text-xs text-blue-600">
-                <strong>Test User ID:</strong> {USER_ID}
-              </p>
-            </div>
+          {/* Info Box */}
+          <div className="mt-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <p className="text-xs text-indigo-800 mb-2">
+              <strong>Test User ID:</strong>{" "}
+              <code className="bg-indigo-100 px-2 py-1 rounded">
+                {TEST_USER_ID}
+              </code>
+            </p>
+            <p className="text-xs text-indigo-700">
+              💡 Make sure the FastAPI backend is running on{" "}
+              <strong>http://localhost:8000</strong>
+            </p>
           </div>
         </div>
       </div>
