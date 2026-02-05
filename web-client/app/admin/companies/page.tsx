@@ -59,6 +59,7 @@ export default function AdminCompaniesPage() {
   // Fetch companies and jobs on mount
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function fetchData() {
@@ -85,8 +86,9 @@ export default function AdminCompaniesPage() {
       // Handle null/undefined data gracefully
       setCompanies(companiesData || []);
       setJobs(jobsData || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch data");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch data";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -110,9 +112,10 @@ export default function AdminCompaniesPage() {
       setCompanyMessage({ type: "success", text: `Company "${data.name}" created successfully!` });
       setCompanyName("");
       setCompanyDescription("");
-      fetchData(); // Refresh data
-    } catch (err: any) {
-      setCompanyMessage({ type: "error", text: err.message || "Failed to create company" });
+      fetchData();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to create company";
+      setCompanyMessage({ type: "error", text: errorMessage });
     } finally {
       setCompanySubmitting(false);
     }
@@ -150,9 +153,10 @@ export default function AdminCompaniesPage() {
       setJobDescription("");
       setSelectedCompanyId("");
       setJobMinScore(50);
-      fetchData(); // Refresh data
-    } catch (err: any) {
-      setJobMessage({ type: "error", text: err.message || "Failed to create job" });
+      fetchData();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to create job";
+      setJobMessage({ type: "error", text: errorMessage });
     } finally {
       setJobSubmitting(false);
     }
@@ -230,8 +234,8 @@ export default function AdminCompaniesPage() {
               {companyMessage && (
                 <div
                   className={`p-3 rounded-lg text-sm ${companyMessage.type === "success"
-                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                      : "bg-red-500/20 text-red-300 border border-red-500/30"
+                    ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                    : "bg-red-500/20 text-red-300 border border-red-500/30"
                     }`}
                 >
                   {companyMessage.text}
@@ -343,8 +347,8 @@ export default function AdminCompaniesPage() {
               {jobMessage && (
                 <div
                   className={`p-3 rounded-lg text-sm ${jobMessage.type === "success"
-                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                      : "bg-red-500/20 text-red-300 border border-red-500/30"
+                    ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                    : "bg-red-500/20 text-red-300 border border-red-500/30"
                     }`}
                 >
                   {jobMessage.text}

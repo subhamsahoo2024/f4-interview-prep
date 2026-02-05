@@ -1,7 +1,9 @@
-fastapi
-uvicorn
+fastapi>=0.104.0
+uvicorn[standard]
 python-multipart
 pypdf2
 sentence-transformers
 supabase
 python-dotenv
+pydantic>=2.0.0
+numpy

@@ -99,16 +99,17 @@ export default function ResumeUploadPage() {
       if (data.details) {
         setPreviewText(
           `✓ Successfully processed your resume!\n\n` +
-            `📄 File: ${data.details.filename}\n` +
-            `📊 Extracted: ${data.details.text_length} characters\n` +
-            `🤖 Generated: ${data.details.embedding_dimensions}D AI embedding vector\n` +
-            `✅ Profile updated in database\n\n` +
-            `Your resume is now ready for job matching!`,
+          `📄 File: ${data.details.filename}\n` +
+          `📊 Extracted: ${data.details.text_length} characters\n` +
+          `🤖 Generated: ${data.details.embedding_dimensions}D AI embedding vector\n` +
+          `✅ Profile updated in database\n\n` +
+          `Your resume is now ready for job matching!`,
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setStatus("error");
-      setErrorMessage(error.message || "An error occurred during upload");
+      const errorMessage = error instanceof Error ? error.message : "An error occurred during upload";
+      setErrorMessage(errorMessage);
       setPreviewText("");
     }
   };
@@ -139,13 +140,12 @@ export default function ResumeUploadPage() {
 
           {/* Drag & Drop Area */}
           <div
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 mb-6 cursor-pointer ${
-              isDragging
+            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 mb-6 cursor-pointer ${isDragging
                 ? "border-indigo-500 bg-indigo-50"
                 : file
                   ? "border-green-500 bg-green-50"
                   : "border-gray-300 hover:border-indigo-400 hover:bg-gray-50"
-            }`}
+              }`}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -200,11 +200,10 @@ export default function ResumeUploadPage() {
           <button
             onClick={handleUpload}
             disabled={!file || status === "loading"}
-            className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-200 ${
-              !file || status === "loading"
+            className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-200 ${!file || status === "loading"
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg transform hover:scale-[1.02]"
-            }`}
+              }`}
           >
             {status === "loading" ? (
               <span className="flex items-center justify-center">

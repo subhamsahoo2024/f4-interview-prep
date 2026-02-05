@@ -1,4 +1,16 @@
 import { createClient } from "@/utils/supabase/server";
+import Link from "next/link";
+
+interface Company {
+  id: string;
+  name: string;
+}
+
+interface Profile {
+  id: string;
+  resume_url: string | null;
+  skills_embedding: number[] | null;
+}
 
 export default async function TestDBPage() {
   const supabase = await createClient();
@@ -49,7 +61,7 @@ export default async function TestDBPage() {
                 Connected successfully! Found {companies.length} companies.
               </p>
               <ul className="list-disc pl-6 space-y-1">
-                {(companies || []).map((company: any) => (
+                {(companies || []).map((company: Company) => (
                   <li key={company.id} className="text-gray-700">
                     {company.name}
                   </li>
@@ -59,7 +71,7 @@ export default async function TestDBPage() {
           ) : (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-yellow-700">
-                Database is connected, but the 'companies' table has no entries.
+                Database is connected, but the &apos;companies&apos; table has no entries.
               </p>
             </div>
           )}
@@ -94,7 +106,7 @@ export default async function TestDBPage() {
                 Connected successfully! Found {profiles.length} profiles.
               </p>
               <div className="space-y-2">
-                {(profiles || []).map((profile: any) => (
+                {(profiles || []).map((profile: Profile) => (
                   <div
                     key={profile.id}
                     className="p-3 bg-gray-50 rounded border border-gray-200"
@@ -119,16 +131,16 @@ export default async function TestDBPage() {
           ) : (
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
               <p className="text-yellow-800 mb-2">
-                Database is connected, but the 'profiles' table has no entries.
+                Database is connected, but the &apos;profiles&apos; table has no entries.
               </p>
               <p className="text-yellow-700 text-sm">
                 Please upload a resume first at{" "}
-                <a
+                <Link
                   href="/dashboard/resume"
                   className="underline font-medium hover:text-yellow-900"
                 >
                   /dashboard/resume
-                </a>
+                </Link>
               </p>
             </div>
           )}
@@ -142,20 +154,20 @@ export default async function TestDBPage() {
           <ul className="mt-2 text-blue-700 text-sm space-y-1">
             <li>
               →{" "}
-              <a
+              <Link
                 href="/dashboard/resume"
                 className="underline hover:text-blue-900"
               >
                 Upload a resume
-              </a>{" "}
+              </Link>{" "}
               to test the profiles table
             </li>
             <li>→ Add companies to the database via Supabase dashboard</li>
             <li>
               → Check the{" "}
-              <a href="/" className="underline hover:text-blue-900">
+              <Link href="/" className="underline hover:text-blue-900">
                 home page
-              </a>{" "}
+              </Link>{" "}
               for more features
             </li>
           </ul>
