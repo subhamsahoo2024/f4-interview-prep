@@ -11,9 +11,9 @@ interface Job {
   id: string;
   title: string;
   company_id: string;
-  companies: Array<{
+  companies?: {
     name: string;
-  }>;
+  };
 }
 
 interface MatchResult {
@@ -53,7 +53,7 @@ export default function JobMatchingPage() {
 
       const { data, error: fetchError } = await supabase
         .from("jobs")
-        .select("id, title, company_id, companies(name)")
+        .select("*, companies(name)")
         .order("created_at", { ascending: false });
 
       if (fetchError) {
@@ -171,7 +171,7 @@ export default function JobMatchingPage() {
               <option value="">-- Choose a job role --</option>
               {jobs.map((job) => (
                 <option key={job.id} value={job.id}>
-                  {job.title} at {job.companies?.[0]?.name || "Unknown Company"}
+                  {job.companies?.name || "Unknown Company"} - {job.title}
                 </option>
               ))}
             </select>
