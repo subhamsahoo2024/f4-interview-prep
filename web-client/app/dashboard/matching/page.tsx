@@ -2,465 +2,371 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-import Link from "next/link";
+
+// Test user ID - replace with your actual UUID from resume upload
+const TEST_USER_ID = "a610985a-fe96-479b-9bdf-75b71aa5aea1";
 
 // Types
-interface Company {
-    id: string;
-    name: string;
-}
-
 interface Job {
-    id: string;
-    company_id: string;
-    title: string;
-    min_score: number;
+  id: string;
+  title: string;
+  company_id: string;
+  companies: Array<{
+    name: string;
+  }>;
 }
 
 interface MatchResult {
-    status: string;
-    match_score: number;
-    analysis: string;
-    details: {
-        user_name: string;
-        job_title: string;
-        company_name: string;
-        min_score_required: number;
-        meets_threshold: boolean;
-        recommendation: string;
-    };
+  status: string;
+  match_score: number;
+  analysis: string;
+  details: {
+    user_name: string;
+    job_title: string;
+    company_name: string;
+    min_score_required: number;
+    meets_threshold: boolean;
+    recommendation: string;
+  };
 }
 
-// FastAPI endpoint
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export default function JobMatchingPage() {
+  const supabase = createClient();
 
-// Circular Progress Component
-function CircularProgress({
-    percentage,
-    size = 200,
-    strokeWidth = 12,
-}: {
-    percentage: number;
-    size?: number;
-    strokeWidth?: number;
-}) {
-    const radius = (size - strokeWidth) / 2;
-    const circumference = radius * 2 * Math.PI;
-    const offset = circumference - (percentage / 100) * circumference;
+  // State
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [fetchingJobs, setFetchingJobs] = useState(true);
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [error, setError] = useState<string>("");
 
-    // Color based on score
-    const getColor = () => {
-        if (percentage >= 70) return "#22c55e"; // green
-        if (percentage >= 50) return "#eab308"; // yellow
-        if (percentage >= 30) return "#f97316"; // orange
-        return "#ef4444"; // red
-    };
+  // Fetch jobs on mount
+  useEffect(() => {
+    fetchJobs();
+  }, []);
 
+  const fetchJobs = async () => {
+    try {
+      setFetchingJobs(true);
+      setError("");
+
+      const { data, error: fetchError } = await supabase
+        .from("jobs")
+        .select("id, title, company_id, companies(name)")
+        .order("created_at", { ascending: false });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      setJobs((data as Job[]) || []);
+    } catch (err: any) {
+      console.error("Error fetching jobs:", err);
+      setError("Failed to load jobs. Please refresh the page.");
+    } finally {
+      setFetchingJobs(false);
+    }
+  };
+
+  const handleAnalyzeFit = async () => {
+    if (!selectedJobId) {
+      setError("Please select a job role first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setMatchResult(null);
+
+      const response = await fetch("http://localhost:8000/match", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: TEST_USER_ID,
+          job_id: selectedJobId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Failed to analyze fit");
+      }
+
+      const data: MatchResult = await response.json();
+      setMatchResult(data);
+    } catch (err: any) {
+      console.error("Error analyzing fit:", err);
+      setError(err.message || "Failed to analyze job fit. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score > 70) return "text-green-600 bg-green-50 border-green-200";
+    if (score >= 40) return "text-yellow-600 bg-yellow-50 border-yellow-200";
+    return "text-red-600 bg-red-50 border-red-200";
+  };
+
+  const getScoreMessage = (score: number) => {
+    if (score > 70) return "High Match! You should apply.";
+    if (score >= 40) return "Moderate Match. Brush up on your skills.";
+    return "Low Match. Consider other roles.";
+  };
+
+  const getScoreIcon = (score: number) => {
+    if (score > 70) return "✅";
+    if (score >= 40) return "⚠️";
+    return "❌";
+  };
+
+  if (fetchingJobs) {
     return (
-        <div className="relative inline-flex items-center justify-center">
-            <svg width={size} height={size} className="transform -rotate-90">
-                {/* Background circle */}
-                <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke="rgba(255,255,255,0.1)"
-                    strokeWidth={strokeWidth}
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-20">
+            <div className="animate-spin inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+            <p className="mt-4 text-gray-600">Loading available jobs...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Check Your Job Eligibility
+          </h1>
+          <p className="text-gray-600">
+            See how well your resume matches with available job roles using
+            AI-powered analysis
+          </p>
+        </div>
+
+        {/* Main Card */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+          {/* Job Selection */}
+          <div className="mb-6">
+            <label
+              htmlFor="job-select"
+              className="block text-sm font-semibold text-gray-700 mb-2"
+            >
+              Select Job Role
+            </label>
+            <select
+              id="job-select"
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              disabled={loading}
+            >
+              <option value="">-- Choose a job role --</option>
+              {jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.title} at {job.companies?.[0]?.name || "Unknown Company"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Action Button */}
+          <button
+            onClick={handleAnalyzeFit}
+            disabled={loading || !selectedJobId}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
                     fill="none"
-                />
-                {/* Progress circle */}
-                <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={getColor()}
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={offset}
-                    style={{
-                        transition: "stroke-dashoffset 1s ease-out, stroke 0.5s ease",
-                    }}
-                />
-            </svg>
-            {/* Percentage text in center */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span
-                    className="text-5xl font-bold text-white"
-                    style={{ color: getColor() }}
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                AI is comparing your resume...
+              </span>
+            ) : (
+              "Analyze Fit"
+            )}
+          </button>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm font-medium">{error}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Results Section */}
+        {matchResult && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Score Card */}
+            <div
+              className={`rounded-2xl shadow-xl p-8 border-2 ${getScoreColor(matchResult.match_score)}`}
+            >
+              <div className="text-center">
+                <div className="text-6xl mb-4">
+                  {getScoreIcon(matchResult.match_score)}
+                </div>
+                <div className="text-5xl font-bold mb-2">
+                  {matchResult.match_score}%
+                </div>
+                <div className="text-xl font-semibold mb-4">
+                  {getScoreMessage(matchResult.match_score)}
+                </div>
+                <div className="h-px bg-current opacity-20 my-6"></div>
+                <p className="text-sm font-medium opacity-75">
+                  Match Score for {matchResult.details.job_title} at{" "}
+                  {matchResult.details.company_name}
+                </p>
+              </div>
+            </div>
+
+            {/* Analysis Details */}
+            <div className="bg-white rounded-2xl shadow-xl p-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                AI Analysis
+              </h3>
+              <p className="text-gray-700 leading-relaxed mb-6">
+                {matchResult.analysis}
+              </p>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                  Match Details
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-start">
+                    <div className="shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                      <p className="text-sm text-gray-500">Candidate</p>
+                      <p className="font-semibold text-gray-900">
+                        {matchResult.details.user_name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        Minimum Score Required
+                      </p>
+                      <p className="font-semibold text-gray-900">
+                        {matchResult.details.min_score_required}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                      <p className="text-sm text-gray-500">Meets Threshold</p>
+                      <p className="font-semibold text-gray-900">
+                        {matchResult.details.meets_threshold
+                          ? "Yes ✅"
+                          : "No ❌"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                      <p className="text-sm text-gray-500">Recommendation</p>
+                      <p className="font-semibold text-gray-900">
+                        {matchResult.details.recommendation}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setMatchResult(null);
+                  setSelectedJobId("");
+                }}
+                className="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-200 transition-all"
+              >
+                Check Another Job
+              </button>
+              {matchResult.details.meets_threshold && (
+                <button
+                  onClick={() => {
+                    alert("Application feature coming soon!");
+                  }}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg"
                 >
-                    {percentage.toFixed(0)}%
-                </span>
-                <span className="text-sm text-purple-200 mt-1">Match Score</span>
+                  Apply Now
+                </button>
+              )}
             </div>
-        </div>
-    );
-}
+          </div>
+        )}
 
-export default function MatchingPage() {
-    const supabase = createClient();
+        {/* Info Card */}
+        {!matchResult && !loading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+            <div className="flex items-start">
+              <div className="shrink-0 text-2xl mr-4">💡</div>
+              <div>
+                <h4 className="font-semibold text-blue-900 mb-2">
+                  How it works
+                </h4>
+                <ul className="text-blue-800 text-sm space-y-1">
+                  <li>• AI analyzes your resume against job requirements</li>
+                  <li>
+                    • Uses semantic matching to understand skills and experience
+                  </li>
+                  <li>
+                    • Provides personalized recommendations based on match score
+                  </li>
+                  <li>
+                    • Helps you focus on roles where you&apos;re most likely to
+                    succeed
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-    // User state - simulated for now (in real app, get from auth)
-    const [userId, setUserId] = useState<string | null>(null);
-    const [userReady, setUserReady] = useState(false);
-    const [checkingUser, setCheckingUser] = useState(true);
-
-    // Data state
-    const [companies, setCompanies] = useState<Company[]>([]);
-    const [jobs, setJobs] = useState<Job[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    // Form state
-    const [selectedCompanyId, setSelectedCompanyId] = useState("");
-    const [selectedJobId, setSelectedJobId] = useState("");
-
-    // Match result state
-    const [matching, setMatching] = useState(false);
-    const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
-    const [matchError, setMatchError] = useState<string | null>(null);
-
-    // Fetch user status and data on mount
-    useEffect(() => {
-        checkUserStatus();
-        fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Filter jobs when company changes
-    const filteredJobs = selectedCompanyId
-        ? (jobs || []).filter((job) => job.company_id === selectedCompanyId)
-        : [];
-
-    async function checkUserStatus() {
-        setCheckingUser(true);
-        try {
-            // Get current logged-in user
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
-
-            if (user) {
-                setUserId(user.id);
-
-                // Check if user has skills embedding
-                const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("skills_embedding")
-                    .eq("id", user.id)
-                    .single();
-
-                setUserReady(!!profile?.skills_embedding);
-            } else {
-                setUserId(null);
-                setUserReady(false);
-            }
-        } catch (err) {
-            console.error("Error checking user:", err);
-            setUserReady(false);
-        } finally {
-            setCheckingUser(false);
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
-    }
-
-    async function fetchData() {
-        setLoading(true);
-        try {
-            // Fetch companies
-            const { data: companiesData } = await supabase
-                .from("companies")
-                .select("id, name")
-                .order("name");
-
-            // Fetch jobs
-            const { data: jobsData } = await supabase
-                .from("jobs")
-                .select("id, company_id, title, min_score")
-                .eq("is_active", true)
-                .order("title");
-
-            setCompanies(companiesData || []);
-            setJobs(jobsData || []);
-        } catch (err) {
-            console.error("Error fetching data:", err);
-        } finally {
-            setLoading(false);
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out;
         }
-    }
-
-    async function handleCheckMatch() {
-        if (!userId || !selectedJobId) return;
-
-        setMatching(true);
-        setMatchResult(null);
-        setMatchError(null);
-
-        try {
-            const response = await fetch(`${API_URL}/match`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    user_id: userId,
-                    job_id: selectedJobId,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.detail || "Failed to calculate match");
-            }
-
-            setMatchResult(data);
-        } catch (err: unknown) {
-            const errorMessage = err instanceof Error ? err.message : "An error occurred";
-            setMatchError(errorMessage);
-        } finally {
-            setMatching(false);
-        }
-    }
-
-    // Loading state
-    if (checkingUser || loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin text-6xl mb-4">⟳</div>
-                    <p className="text-purple-200">Loading...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // Not logged in state
-    if (!userId) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-8">
-                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center max-w-md">
-                    <div className="text-6xl mb-4">🔐</div>
-                    <h2 className="text-2xl font-bold text-white mb-2">
-                        Login Required
-                    </h2>
-                    <p className="text-purple-200 mb-6">
-                        Please log in to access the job matching feature.
-                    </p>
-                    <Link
-                        href="/login"
-                        className="inline-block px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium rounded-lg transition-all"
-                    >
-                        Go to Login
-                    </Link>
-                </div>
-            </div>
-        );
-    }
-
-    // Resume not uploaded state
-    if (!userReady) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-8">
-                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center max-w-md">
-                    <div className="text-6xl mb-4">📄</div>
-                    <h2 className="text-2xl font-bold text-white mb-2">
-                        Resume Required
-                    </h2>
-                    <p className="text-purple-200 mb-6">
-                        Upload your resume first to enable AI-powered job matching. We need to
-                        analyze your skills to find the best matches.
-                    </p>
-                    <Link
-                        href="/dashboard/resume"
-                        className="inline-block px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium rounded-lg transition-all"
-                    >
-                        Upload Resume First
-                    </Link>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="mb-8 text-center">
-                    <h1 className="text-4xl font-bold text-white mb-2">Job Matching</h1>
-                    <p className="text-purple-200">
-                        Discover how well your skills align with job requirements using AI
-                    </p>
-                </div>
-
-                {/* Selection Form */}
-                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 mb-8">
-                    <div className="grid md:grid-cols-2 gap-6">
-                        {/* Company Select */}
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-2">
-                                Select Company
-                            </label>
-                            <select
-                                value={selectedCompanyId}
-                                onChange={(e) => {
-                                    setSelectedCompanyId(e.target.value);
-                                    setSelectedJobId("");
-                                    setMatchResult(null);
-                                }}
-                                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            >
-                                <option value="" className="bg-slate-800">
-                                    Choose a company...
-                                </option>
-                                {(companies || []).map((company) => (
-                                    <option
-                                        key={company.id}
-                                        value={company.id}
-                                        className="bg-slate-800"
-                                    >
-                                        {company.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Job Select */}
-                        <div>
-                            <label className="block text-sm font-medium text-purple-200 mb-2">
-                                Select Job
-                            </label>
-                            <select
-                                value={selectedJobId}
-                                onChange={(e) => {
-                                    setSelectedJobId(e.target.value);
-                                    setMatchResult(null);
-                                }}
-                                disabled={!selectedCompanyId}
-                                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <option value="" className="bg-slate-800">
-                                    {selectedCompanyId
-                                        ? "Choose a job..."
-                                        : "Select a company first"}
-                                </option>
-                                {filteredJobs.map((job) => (
-                                    <option key={job.id} value={job.id} className="bg-slate-800">
-                                        {job.title} (Min: {job.min_score}%)
-                                    </option>
-                                ))}
-                            </select>
-                            {selectedCompanyId && filteredJobs.length === 0 && (
-                                <p className="text-yellow-400 text-sm mt-2">
-                                    No jobs available for this company.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Check Match Button */}
-                    <div className="mt-6 text-center">
-                        <button
-                            onClick={handleCheckMatch}
-                            disabled={!selectedJobId || matching}
-                            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all shadow-lg shadow-purple-500/25 text-lg"
-                        >
-                            {matching ? (
-                                <span className="flex items-center gap-2">
-                                    <span className="animate-spin">⟳</span> Analyzing...
-                                </span>
-                            ) : (
-                                "Check Match"
-                            )}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Error Display */}
-                {matchError && (
-                    <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 mb-8 text-center">
-                        <p className="text-red-300">{matchError}</p>
-                    </div>
-                )}
-
-                {/* Match Result */}
-                {matchResult && (
-                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-                        <div className="text-center mb-8">
-                            <CircularProgress percentage={matchResult.match_score} />
-                        </div>
-
-                        {/* Analysis */}
-                        <div className="bg-white/5 rounded-xl p-6 mb-6">
-                            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-                                <span>🔍</span> Analysis
-                            </h3>
-                            <p className="text-purple-200 leading-relaxed">
-                                {matchResult.analysis}
-                            </p>
-                        </div>
-
-                        {/* Details Grid */}
-                        <div className="grid md:grid-cols-2 gap-4 mb-6">
-                            <div className="bg-white/5 rounded-xl p-4">
-                                <p className="text-sm text-purple-300 mb-1">Job Position</p>
-                                <p className="text-white font-medium">
-                                    {matchResult.details.job_title}
-                                </p>
-                                <p className="text-purple-200 text-sm">
-                                    at {matchResult.details.company_name}
-                                </p>
-                            </div>
-
-                            <div className="bg-white/5 rounded-xl p-4">
-                                <p className="text-sm text-purple-300 mb-1">Minimum Required</p>
-                                <p className="text-white font-medium">
-                                    {matchResult.details.min_score_required}%
-                                </p>
-                                <p
-                                    className={`text-sm ${matchResult.details.meets_threshold
-                                        ? "text-green-400"
-                                        : "text-yellow-400"
-                                        }`}
-                                >
-                                    {matchResult.details.meets_threshold
-                                        ? "✓ You meet the threshold!"
-                                        : "✗ Below threshold"}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Recommendation */}
-                        <div
-                            className={`rounded-xl p-4 ${matchResult.details.meets_threshold
-                                ? "bg-green-500/20 border border-green-500/30"
-                                : "bg-yellow-500/20 border border-yellow-500/30"
-                                }`}
-                        >
-                            <p
-                                className={
-                                    matchResult.details.meets_threshold
-                                        ? "text-green-300"
-                                        : "text-yellow-300"
-                                }
-                            >
-                                <strong>Recommendation:</strong>{" "}
-                                {matchResult.details.recommendation}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Empty State */}
-                {!matchResult && !matchError && companies.length === 0 && (
-                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center">
-                        <div className="text-6xl mb-4">🏢</div>
-                        <h3 className="text-xl font-medium text-white mb-2">
-                            No Companies Available
-                        </h3>
-                        <p className="text-purple-200">
-                            There are no companies with job postings yet. Check back later!
-                        </p>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+      `}</style>
+    </div>
+  );
 }
