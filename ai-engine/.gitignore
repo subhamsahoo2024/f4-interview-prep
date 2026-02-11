@@ -9,3 +9,5 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+clean_general_aptitude_dataset.csv

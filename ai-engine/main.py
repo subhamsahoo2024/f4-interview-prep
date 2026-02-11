@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import resume, jobs, matching
+from routers import resume, jobs, matching, aptitude
 
 app = FastAPI(
     title="Smart Placement Assistant API",
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(resume.router)
 app.include_router(jobs.router)
 app.include_router(matching.router)
+app.include_router(aptitude.router)
 
 
 @app.get("/")
